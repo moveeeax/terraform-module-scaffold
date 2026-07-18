@@ -23,7 +23,7 @@ Go 1.22, `cobra` CLI, `text/template` for file generation, embedded template FS.
 ## Usage
 
 ```bash
-go install github.com/moveeeax/terraform-module-scaffold@latest
+go install github.com/cybercapybara/terraform-module-scaffold@latest
 terraform-module-scaffold new --name vpc --provider aws
 ```
 
