@@ -1,0 +1,16 @@
+.PHONY: fmt validate lint test docs
+
+fmt:
+	terraform fmt -recursive
+
+validate:
+	terraform init -backend=false >/dev/null && terraform validate
+
+lint:
+	tflint --init && tflint
+
+test:
+	cd test && go test -v -timeout 30m ./...
+
+docs:
+	terraform-docs markdown table --output-file README.md --output-mode inject .

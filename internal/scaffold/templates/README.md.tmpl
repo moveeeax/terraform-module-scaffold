@@ -1,0 +1,47 @@
+# {{ .Name }}
+
+{{ .Description }}
+
+## Usage
+
+```hcl
+module "{{ .ModuleName }}" {
+{{ .ModuleArgs "./" }}
+}
+```
+
+## Requirements
+
+| Name | Version |
+|------|---------|
+| terraform | `{{ .TerraformVersion }}` |
+| {{ .Provider }} | `{{ .ProviderVersion }}` |
+
+## Inputs
+
+| Name | Description | Type | Default | Required |
+|------|-------------|------|---------|:--------:|
+{{- range .Variables }}
+| `{{ .Name }}` | {{ .Description }} | `{{ .Type }}` | {{ if .Required }}n/a{{ else }}`{{ .Default }}`{{ end }} | {{ if .Required }}yes{{ else }}no{{ end }} |
+{{- end }}
+
+## Outputs
+
+| Name | Description |
+|------|-------------|
+{{- range .Outputs }}
+| `{{ .Name }}` | {{ .Description }} |
+{{- end }}
+
+## Development
+
+```bash
+make fmt       # terraform fmt -recursive
+make validate  # terraform validate
+make lint      # tflint
+make test      # run the Terratest suite under test/
+```
+
+---
+
+_Generated with [terraform-module-scaffold](https://github.com/moveeeax/terraform-module-scaffold)._

@@ -1,0 +1,24 @@
+locals {
+  tags = merge(
+    {
+      "Module"    = "{{ .Name }}"
+      "ManagedBy" = "terraform"
+    },
+{{- if .HasTagsVar }}
+    var.tags,
+{{- end }}
+  )
+{{- if .HasNameVar }}
+
+  name = var.name
+{{- end }}
+}
+
+# TODO: declare your {{ .Provider }} resources here, wiring in local.name / local.tags.
+#
+#   resource "{{ .Provider }}_example" "this" {
+{{- if .HasNameVar }}
+#     name = local.name
+{{- end }}
+#     tags = local.tags
+#   }

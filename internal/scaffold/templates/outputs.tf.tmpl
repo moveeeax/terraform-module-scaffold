@@ -1,0 +1,9 @@
+{{- range $i, $o := .Outputs }}
+{{- if $i }}
+
+{{ end -}}
+output "{{ $o.Name }}" {
+  description = "{{ $o.Description }}"
+  value       = {{ $o.Value }}
+}
+{{- end }}

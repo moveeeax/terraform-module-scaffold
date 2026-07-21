@@ -1,0 +1,24 @@
+package test
+
+import (
+	"testing"
+
+	"github.com/gruntwork-io/terratest/modules/terraform"
+	"github.com/stretchr/testify/require"
+)
+
+// TestBasicExample validates that the basic example initializes cleanly.
+// Extend it with terraform.InitAndApply + assertions once the module declares
+// real resources (guard apply-based tests behind a build tag or env check so CI
+// does not provision infrastructure by accident).
+func TestBasicExample(t *testing.T) {
+	t.Parallel()
+
+	opts := &terraform.Options{
+		TerraformDir: "../examples/basic",
+		NoColor:      true,
+	}
+
+	terraform.Init(t, opts)
+	require.NotEmpty(t, opts.TerraformDir)
+}
