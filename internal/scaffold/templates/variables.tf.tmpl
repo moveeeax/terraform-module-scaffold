@@ -1,0 +1,15 @@
+{{- range $i, $v := .Variables }}
+{{- if $i }}
+
+{{ end -}}
+variable "{{ $v.Name }}" {
+  description = "{{ $v.Description }}"
+  type        = {{ $v.Type }}
+{{- if not $v.Required }}
+  default     = {{ $v.Default }}
+{{- end }}
+{{- if $v.Sensitive }}
+  sensitive   = true
+{{- end }}
+}
+{{- end }}

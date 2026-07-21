@@ -1,0 +1,58 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        go-version: ["1.22", "1.23"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Verify formatting
+        run: test -z "$(gofmt -l .)"
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test -race ./...
+
+      - name: Build
+        run: go build -o /tmp/terraform-module-scaffold .
+
+      - name: Smoke-test CLI (flags)
+        run: |
+          /tmp/terraform-module-scaffold new --name vpc --provider aws --no-input -o /tmp/vpc
+          test -f /tmp/vpc/main.tf
+          test -f /tmp/vpc/variables.tf
+          test -f /tmp/vpc/examples/basic/main.tf
+          test -f /tmp/vpc/test/module_test.go
+
+      - name: Smoke-test CLI (config)
+        run: |
+          /tmp/terraform-module-scaffold new --config examples/module.yaml -o /tmp/bucket
+          grep -q 'bucket_name' /tmp/bucket/variables.tf
+          grep -q 'aws_s3_bucket.this.arn' /tmp/bucket/outputs.tf
+
+      - name: Validate generated Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.5"
+
+      - name: terraform fmt/validate on generated module
+        run: |
+          terraform -chdir=/tmp/vpc fmt -check -recursive
+          terraform -chdir=/tmp/vpc init -backend=false
+          terraform -chdir=/tmp/vpc validate

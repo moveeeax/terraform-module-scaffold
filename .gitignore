@@ -1,0 +1,4 @@
+/terraform-module-scaffold
+/dist/
+*.test
+*.out

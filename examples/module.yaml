@@ -1,0 +1,28 @@
+# Non-interactive spec for `terraform-module-scaffold new --config examples/module.yaml`.
+# Everything except name/provider is optional and falls back to sane defaults.
+name: s3-bucket
+provider: aws
+description: Opinionated S3 bucket with versioning and tagging.
+terraform_version: ">= 1.5.0"
+provider_version: ">= 5.0.0"
+
+variables:
+  - name: bucket_name
+    type: string
+    description: Globally unique name of the bucket.
+  - name: versioning
+    type: bool
+    description: Whether to enable object versioning.
+    default: "true"
+  - name: tags
+    type: map(string)
+    description: Tags applied to all resources.
+    default: "{}"
+
+outputs:
+  - name: arn
+    description: ARN of the bucket.
+    value: aws_s3_bucket.this.arn
+  - name: bucket
+    description: Name of the bucket.
+    value: aws_s3_bucket.this.id
