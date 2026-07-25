@@ -22,7 +22,7 @@ module "{{ .ModuleName }}" {
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 {{- range .Variables }}
-| `{{ .Name }}` | {{ .Description }} | `{{ .Type }}` | {{ if .Required }}n/a{{ else }}`{{ .Default }}`{{ end }} | {{ if .Required }}yes{{ else }}no{{ end }} |
+| `{{ .Name }}` | {{ md .Description }} | `{{ .Type }}` | {{ if .Required }}n/a{{ else }}`{{ .Default }}`{{ end }} | {{ if .Required }}yes{{ else }}no{{ end }} |
 {{- end }}
 
 ## Outputs
@@ -30,17 +30,24 @@ module "{{ .ModuleName }}" {
 | Name | Description |
 |------|-------------|
 {{- range .Outputs }}
-| `{{ .Name }}` | {{ .Description }} |
+| `{{ .Name }}` | {{ md .Description }} |
 {{- end }}
 
 ## Development
 
 ```bash
-make fmt       # terraform fmt -recursive
-make validate  # terraform validate
-make lint      # tflint
-make test      # run the Terratest suite under test/
+make fmt               # terraform fmt -recursive
+make validate          # terraform validate
+make lint              # tflint
+make test              # terraform test — tests/, mocked providers, no credentials
+make integration-test  # Terratest under test/ — provisions real infrastructure
 ```
+
+`make test` runs the native suite in [`tests/`](tests/). It mocks the
+`{{ .Provider }}` provider, so it needs no credentials and is safe in CI —
+`.github/workflows/ci.yml` runs it on every pull request. It needs Terraform
+>= 1.7 for `mock_provider`; the module itself only requires
+`{{ .TerraformVersion }}`.
 
 ---
 

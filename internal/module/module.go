@@ -43,21 +43,71 @@ type Spec struct {
 
 var nameRe = regexp.MustCompile(`^[a-z][a-z0-9_-]*$`)
 
-// knownProviders maps a provider short name to its registry source namespace.
-var knownProviders = map[string]string{
-	"aws":        "hashicorp/aws",
-	"google":     "hashicorp/google",
-	"azurerm":    "hashicorp/azurerm",
-	"kubernetes": "hashicorp/kubernetes",
-	"null":       "hashicorp/null",
+// providerInfo is what a provider needs in a required_providers block.
+type providerInfo struct {
+	Source  string // registry source address
+	Version string // default constraint, floored at the provider's current major
+}
+
+// knownProviders maps a provider short name to its registry source and a
+// default version constraint.
+//
+// The constraint matters more than it looks: it is a floor the public registry
+// has to be able to satisfy. A blanket ">= 5.0.0" is not a conservative default,
+// it is a broken one — the kubernetes, null and azurerm providers have never
+// published a 5.x, so a module scaffolded with it fails at `terraform init`
+// before anyone gets to write a resource. Keep every floor here at a major that
+// actually exists, and prefer the current major so a brand-new module starts on
+// the provider generation it was written against.
+var knownProviders = map[string]providerInfo{
+	"archive":     {"hashicorp/archive", ">= 2.0"},
+	"aws":         {"hashicorp/aws", ">= 6.0"},
+	"azuread":     {"hashicorp/azuread", ">= 3.0"},
+	"azurerm":     {"hashicorp/azurerm", ">= 4.0"},
+	"cloudflare":  {"cloudflare/cloudflare", ">= 5.0"},
+	"cloudinit":   {"hashicorp/cloudinit", ">= 2.0"},
+	"datadog":     {"DataDog/datadog", ">= 3.0"},
+	"external":    {"hashicorp/external", ">= 2.0"},
+	"github":      {"integrations/github", ">= 6.0"},
+	"google":      {"hashicorp/google", ">= 7.0"},
+	"google-beta": {"hashicorp/google-beta", ">= 7.0"},
+	"helm":        {"hashicorp/helm", ">= 3.0"},
+	"http":        {"hashicorp/http", ">= 3.0"},
+	"kubernetes":  {"hashicorp/kubernetes", ">= 2.30"},
+	"local":       {"hashicorp/local", ">= 2.0"},
+	"null":        {"hashicorp/null", ">= 3.0"},
+	"random":      {"hashicorp/random", ">= 3.0"},
+	"time":        {"hashicorp/time", ">= 0.9"},
+	"tls":         {"hashicorp/tls", ">= 4.0"},
+}
+
+// fallbackProviderVersion is used for providers not in knownProviders. It is a
+// guess, so `new` warns about it; ">= 1.0" at least resolves against the
+// overwhelming majority of published providers.
+const fallbackProviderVersion = ">= 1.0"
+
+// KnownProvider reports whether the scaffold has verified source and version
+// metadata for the spec's provider, or is guessing.
+func (s Spec) KnownProvider() bool {
+	_, ok := knownProviders[s.Provider]
+	return ok
 }
 
 // ProviderSource returns the registry source for the spec's provider.
 func (s Spec) ProviderSource() string {
-	if src, ok := knownProviders[s.Provider]; ok {
-		return src
+	if p, ok := knownProviders[s.Provider]; ok {
+		return p.Source
 	}
 	return "hashicorp/" + s.Provider
+}
+
+// DefaultProviderVersion returns the version constraint used when the spec does
+// not pin one itself.
+func (s Spec) DefaultProviderVersion() string {
+	if p, ok := knownProviders[s.Provider]; ok {
+		return p.Version
+	}
+	return fallbackProviderVersion
 }
 
 // ModuleName is a Terraform-friendly identifier derived from Name.
@@ -85,7 +135,7 @@ func (s *Spec) ApplyDefaults() {
 		s.TerraformVersion = ">= 1.5.0"
 	}
 	if s.ProviderVersion == "" {
-		s.ProviderVersion = ">= 5.0.0"
+		s.ProviderVersion = s.DefaultProviderVersion()
 	}
 	if s.Description == "" {
 		s.Description = fmt.Sprintf("Terraform module %s", s.Name)
@@ -140,6 +190,12 @@ func (s Spec) Validate() error {
 			return fmt.Errorf("duplicate output %q", o.Name)
 		}
 		seenOut[o.Name] = true
+		// An output value is emitted verbatim as the right-hand side of
+		// `value = `. Empty means unparseable HCL, so refuse here rather than
+		// write a module that cannot be read back.
+		if strings.TrimSpace(o.Value) == "" {
+			return fmt.Errorf("output %q has no value: set `value` to the HCL expression the output should return", o.Name)
+		}
 	}
 	return nil
 }

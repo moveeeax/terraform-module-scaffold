@@ -3,6 +3,7 @@ package module
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -77,6 +78,77 @@ func TestProviderSource(t *testing.T) {
 	}
 	if got := (Spec{Provider: "custom"}).ProviderSource(); got != "hashicorp/custom" {
 		t.Errorf("fallback source = %q", got)
+	}
+	// Not every provider lives under hashicorp/.
+	if got := (Spec{Provider: "github"}).ProviderSource(); got != "integrations/github" {
+		t.Errorf("github source = %q, want integrations/github", got)
+	}
+}
+
+// The default provider version is a constraint the public registry has to be
+// able to satisfy. A single blanket floor cannot be: kubernetes, null and
+// azurerm have never published a 5.x, so ">= 5.0.0" made every module scaffolded
+// for them fail at `terraform init`. The ci.yml "generated" job proves the
+// floors resolve for real; this pins them so they cannot silently drift back.
+func TestDefaultProviderVersionIsPerProvider(t *testing.T) {
+	want := map[string]string{
+		"aws":        ">= 6.0",
+		"azurerm":    ">= 4.0",
+		"google":     ">= 7.0",
+		"kubernetes": ">= 2.30",
+		"null":       ">= 3.0",
+		"custom":     fallbackProviderVersion,
+	}
+	for provider, expect := range want {
+		s := Spec{Name: "m", Provider: provider}
+		s.ApplyDefaults()
+		if s.ProviderVersion != expect {
+			t.Errorf("%s default version = %q, want %q", provider, s.ProviderVersion, expect)
+		}
+	}
+
+	// An explicit pin in the spec always wins.
+	s := Spec{Name: "m", Provider: "aws", ProviderVersion: "~> 5.40"}
+	s.ApplyDefaults()
+	if s.ProviderVersion != "~> 5.40" {
+		t.Errorf("explicit provider_version overwritten with %q", s.ProviderVersion)
+	}
+}
+
+func TestKnownProvider(t *testing.T) {
+	if !(Spec{Provider: "azurerm"}).KnownProvider() {
+		t.Error("azurerm should be known")
+	}
+	if (Spec{Provider: "snowflake"}).KnownProvider() {
+		t.Error("snowflake should not be known")
+	}
+}
+
+func TestKnownProvidersAreComplete(t *testing.T) {
+	for name, p := range knownProviders {
+		if !strings.Contains(p.Source, "/") {
+			t.Errorf("provider %q: source %q is not a registry address", name, p.Source)
+		}
+		if strings.TrimSpace(p.Version) == "" {
+			t.Errorf("provider %q: empty version constraint", name)
+		}
+	}
+}
+
+// An output with no value renders `value = ` — unparseable HCL. Refuse it up
+// front instead of writing a module that cannot be read back.
+func TestValidateRejectsOutputWithoutValue(t *testing.T) {
+	s := Spec{
+		Name:     "vpc",
+		Provider: "aws",
+		Outputs:  []Output{{Name: "arn", Description: "ARN"}},
+	}
+	err := s.Validate()
+	if err == nil {
+		t.Fatal("expected error for output with no value")
+	}
+	if !strings.Contains(err.Error(), "arn") {
+		t.Errorf("error should name the output: %v", err)
 	}
 }
 

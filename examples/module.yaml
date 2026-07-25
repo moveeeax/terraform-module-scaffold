@@ -1,10 +1,12 @@
 # Non-interactive spec for `terraform-module-scaffold new --config examples/module.yaml`.
-# Everything except name/provider is optional and falls back to sane defaults.
+# Everything except name/provider is optional and falls back to sane defaults —
+# including provider_version, which defaults per provider to a constraint the
+# registry can actually satisfy.
 name: s3-bucket
 provider: aws
 description: Opinionated S3 bucket with versioning and tagging.
 terraform_version: ">= 1.5.0"
-provider_version: ">= 5.0.0"
+provider_version: ">= 6.0"
 
 variables:
   - name: bucket_name
@@ -19,10 +21,19 @@ variables:
     description: Tags applied to all resources.
     default: "{}"
 
+# `value` is copied verbatim into outputs.tf, so it must reference something the
+# generated module actually declares, or the module will not validate. A fresh
+# scaffold has variables and locals but no resources yet, so outputs start there.
+# Once you replace the TODO in main.tf with `resource "aws_s3_bucket" "this"`,
+# point them at it instead:
+#
+#   - name: arn
+#     description: ARN of the bucket.
+#     value: aws_s3_bucket.this.arn
 outputs:
-  - name: arn
-    description: ARN of the bucket.
-    value: aws_s3_bucket.this.arn
-  - name: bucket
-    description: Name of the bucket.
-    value: aws_s3_bucket.this.id
+  - name: bucket_name
+    description: Name of the bucket, echoed back for downstream modules.
+    value: var.bucket_name
+  - name: tags
+    description: Effective tag set applied to all resources.
+    value: local.tags

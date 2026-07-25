@@ -65,6 +65,16 @@ func newNewCmd() *cobra.Command {
 				dest = spec.Name
 			}
 
+			// The scaffold only has verified registry metadata for the
+			// providers it knows. For anything else both the source address and
+			// the version constraint in versions.tf are guesses, and a wrong
+			// guess fails at `terraform init`, not here — so say so.
+			if !spec.KnownProvider() {
+				fmt.Fprintf(cmd.ErrOrStderr(),
+					"warning: provider %q is not one this scaffold knows; check versions.tf — source = %q and the version constraint are guesses\n",
+					spec.Provider, spec.ProviderSource())
+			}
+
 			written, err := scaffold.Generate(spec, scaffold.Options{Dest: dest, Force: force})
 			if err != nil {
 				return err
