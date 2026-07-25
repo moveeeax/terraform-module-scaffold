@@ -3,7 +3,7 @@
 
 {{ end -}}
 output "{{ $o.Name }}" {
-  description = "{{ $o.Description }}"
+  description = {{ hcl $o.Description }}
   value       = {{ $o.Value }}
 }
 {{- end }}

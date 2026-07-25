@@ -6,8 +6,12 @@ on:
   pull_request:
     branches: [main]
 
+# Least privilege: nothing here needs to write to the repository.
+permissions:
+  contents: read
+
 jobs:
-  test:
+  go:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -38,21 +42,69 @@ jobs:
           test -f /tmp/vpc/main.tf
           test -f /tmp/vpc/variables.tf
           test -f /tmp/vpc/examples/basic/main.tf
+          test -f /tmp/vpc/tests/defaults.tftest.hcl
           test -f /tmp/vpc/test/module_test.go
+          test -f /tmp/vpc/.github/workflows/ci.yml
 
       - name: Smoke-test CLI (config)
         run: |
           /tmp/terraform-module-scaffold new --config examples/module.yaml -o /tmp/bucket
           grep -q 'bucket_name' /tmp/bucket/variables.tf
-          grep -q 'aws_s3_bucket.this.arn' /tmp/bucket/outputs.tf
+          grep -q 'local.tags' /tmp/bucket/outputs.tf
 
-      - name: Validate generated Terraform
-        uses: hashicorp/setup-terraform@v3
+  # A generated module has to survive real Terraform, for every provider the
+  # scaffold claims to know. A wrong provider version floor is invisible until
+  # `terraform init` resolves it against the registry, which is why this gets a
+  # job of its own rather than a unit test.
+  generated:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Quoted: an unquoted `null` is a YAML null, not the provider name.
+        provider: ["aws", "azurerm", "google", "kubernetes", "null"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      # >= 1.7 so the generated tests/*.tftest.hcl suite can use mock_provider.
+      - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "1.9.5"
+          terraform_wrapper: false
 
-      - name: terraform fmt/validate on generated module
+      - name: Build
+        run: go build -o /tmp/terraform-module-scaffold .
+
+      - name: Generate
         run: |
-          terraform -chdir=/tmp/vpc fmt -check -recursive
-          terraform -chdir=/tmp/vpc init -backend=false
-          terraform -chdir=/tmp/vpc validate
+          /tmp/terraform-module-scaffold new \
+            --name demo --provider '${{ matrix.provider }}' --no-input -o /tmp/demo
+
+      - name: fmt / init / validate
+        run: |
+          terraform -chdir=/tmp/demo fmt -check -recursive
+          terraform -chdir=/tmp/demo init -backend=false
+          terraform -chdir=/tmp/demo validate
+
+      - name: terraform test
+        run: terraform -chdir=/tmp/demo test
+
+      - name: Validate the generated example
+        run: |
+          terraform -chdir=/tmp/demo/examples/basic init -backend=false
+          terraform -chdir=/tmp/demo/examples/basic validate
+
+      # The config-driven path renders different variables and outputs than the
+      # defaults, so it is checked too — on the provider it is written for.
+      - name: Generate and validate from examples/module.yaml
+        if: matrix.provider == 'aws'
+        run: |
+          /tmp/terraform-module-scaffold new --config examples/module.yaml -o /tmp/bucket
+          terraform -chdir=/tmp/bucket fmt -check -recursive
+          terraform -chdir=/tmp/bucket init -backend=false
+          terraform -chdir=/tmp/bucket validate
+          terraform -chdir=/tmp/bucket test

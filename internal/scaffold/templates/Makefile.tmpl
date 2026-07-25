@@ -1,4 +1,4 @@
-.PHONY: fmt validate lint test docs
+.PHONY: fmt validate lint test integration-test docs
 
 fmt:
 	terraform fmt -recursive
@@ -9,7 +9,14 @@ validate:
 lint:
 	tflint --init && tflint
 
+# Native `terraform test` suite under tests/. Providers are mocked, so this
+# needs no credentials and touches no cloud API. Requires Terraform >= 1.7.
 test:
+	terraform init -backend=false >/dev/null && terraform test
+
+# Terratest suite under test/. This one provisions real infrastructure once you
+# extend it past `terraform init` — do not wire it into a pull-request workflow.
+integration-test:
 	cd test && go test -v -timeout 30m ./...
 
 docs:

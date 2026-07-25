@@ -87,6 +87,28 @@ func TestNewInteractivePrompts(t *testing.T) {
 	}
 }
 
+// For an unknown provider both the source address and the version constraint in
+// versions.tf are guesses, and a bad guess only surfaces at `terraform init`.
+func TestNewWarnsOnUnknownProvider(t *testing.T) {
+	dest := filepath.Join(t.TempDir(), "thing")
+	out, err := run(t, "new", "--name", "thing", "--provider", "snowflake", "--no-input", "-o", dest)
+	if err != nil {
+		t.Fatalf("execute: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "warning: provider \"snowflake\" is not one this scaffold knows") {
+		t.Errorf("expected an unknown-provider warning:\n%s", out)
+	}
+
+	quiet, err := run(t, "new", "--name", "vpc", "--provider", "aws", "--no-input",
+		"-o", filepath.Join(t.TempDir(), "vpc"))
+	if err != nil {
+		t.Fatalf("execute: %v\n%s", err, quiet)
+	}
+	if strings.Contains(quiet, "warning:") {
+		t.Errorf("a known provider must not warn:\n%s", quiet)
+	}
+}
+
 func TestNewRejectsBadName(t *testing.T) {
 	dest := filepath.Join(t.TempDir(), "x")
 	if _, err := run(t, "new", "--name", "9bad", "--provider", "aws", "--no-input", "-o", dest); err == nil {

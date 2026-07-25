@@ -1,0 +1,58 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Least privilege: this workflow only reads the repository. Without an explicit
+# block the job inherits whatever the repository default is, which is often
+# read/write on every scope.
+permissions:
+  contents: read
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # tests/*.tftest.hcl uses mock_provider, which needs Terraform >= 1.7.
+      # The module itself only requires {{ .TerraformVersion }} — see versions.tf.
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.5"
+          terraform_wrapper: false
+
+      - name: Format
+        run: terraform fmt -check -recursive
+
+      - name: Init
+        run: terraform init -backend=false
+
+      - name: Validate
+        run: terraform validate
+
+      # Mocked providers: no credentials, no cloud calls, safe on pull requests.
+      - name: Test
+        run: terraform test
+
+      # `validate` alone does not evaluate expressions, so examples are checked
+      # separately — an example that validates can still fail at plan time.
+      - name: Validate examples
+        run: |
+          for dir in examples/*/; do
+            echo "==> $dir"
+            terraform -chdir="$dir" init -backend=false
+            terraform -chdir="$dir" validate
+          done
+
+      - uses: terraform-linters/setup-tflint@v4
+
+      - name: Lint
+        env:
+          # Authenticates ruleset plugin downloads against the GitHub API rate limit.
+          GITHUB_TOKEN: {{ `${{ secrets.GITHUB_TOKEN }}` }}
+        run: |
+          tflint --init
+          tflint --format compact

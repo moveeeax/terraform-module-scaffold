@@ -3,7 +3,7 @@
 
 {{ end -}}
 variable "{{ $v.Name }}" {
-  description = "{{ $v.Description }}"
+  description = {{ hcl $v.Description }}
   type        = {{ $v.Type }}
 {{- if not $v.Required }}
   default     = {{ $v.Default }}

@@ -9,7 +9,7 @@ plugin "terraform" {
 {{ if .HasRuleset }}
 plugin "{{ .Provider }}" {
   enabled = true
-  version = "0.31.0"
+  version = "{{ .RulesetVersion }}"
   source  = "github.com/terraform-linters/tflint-ruleset-{{ .Provider }}"
 }
 {{- end }}

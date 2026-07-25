@@ -1,0 +1,62 @@
+# Native `terraform test` suite for the {{ .Name }} module.
+#
+#   terraform init -backend=false && terraform test
+#
+# Running these needs Terraform >= 1.7 for `mock_provider`. That floor is
+# deliberately NOT in versions.tf: consuming this module only needs
+# `{{ .TerraformVersion }}`, and raising required_version for a test-only feature
+# would lock out consumers for no reason.
+#
+# The provider is mocked, so the suite runs with no credentials and reaches no
+# cloud API — safe to run on every pull request.
+
+mock_provider "{{ .Provider }}" {}
+
+# The module must be plannable from its required inputs alone. This is the
+# check that catches a module which passes `terraform validate` but blows up at
+# plan time — validate never evaluates expressions, plan does.
+run "plans_with_required_inputs_only" {
+  command = plan
+{{- with .RequiredVarAssignments 4 }}
+
+  variables {
+{{ . }}
+  }
+{{- end }}
+}
+{{- if .CanAssertTags }}
+
+# Module-identifying tags must be merged over, not replaced by, caller tags.
+run "module_tags_merge_with_caller_tags" {
+  command = plan
+
+  variables {
+{{ .TagTestAssignments 4 }}
+  }
+
+  assert {
+    condition     = output.tags["Module"] == "{{ .Name }}"
+    error_message = "local.tags must stamp Module = {{ .Name }} onto every resource"
+  }
+
+  assert {
+    condition     = output.tags["ManagedBy"] == "terraform"
+    error_message = "local.tags must stamp ManagedBy = terraform onto every resource"
+  }
+
+  assert {
+    condition     = output.tags["Owner"] == "platform-team"
+    error_message = "caller-supplied tags must survive the merge with the module's own tags"
+  }
+}
+{{- end }}
+
+# TODO: add one run block per behaviour worth protecting. Assert on the safe
+# default rather than the value you happen to pass, and prove input validation
+# with expect_failures:
+#
+#   run "rejects_public_ingress" {
+#     command   = plan
+#     variables { allowed_cidrs = ["0.0.0.0/0"] }
+#     expect_failures = [var.allowed_cidrs]
+#   }
