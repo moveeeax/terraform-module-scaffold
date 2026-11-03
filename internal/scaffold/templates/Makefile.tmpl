@@ -16,8 +16,9 @@ test:
 
 # Terratest suite under test/. This one provisions real infrastructure once you
 # extend it past `terraform init` — do not wire it into a pull-request workflow.
+# test/go.mod ships without a go.sum, so `go mod tidy` resolves it on first run.
 integration-test:
-	cd test && go test -v -timeout 30m ./...
+	cd test && go mod tidy && go test -v -timeout 30m ./...
 
 docs:
 	terraform-docs markdown table --output-file README.md --output-mode inject .
