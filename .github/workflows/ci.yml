@@ -16,11 +16,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go-version: ["1.22", "1.23"]
+        go-version: ["1.26", "1.27"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version: ${{ matrix.go-version }}
 
@@ -64,16 +64,16 @@ jobs:
         # Quoted: an unquoted `null` is a YAML null, not the provider name.
         provider: ["aws", "azurerm", "google", "kubernetes", "null"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
-          go-version: "1.23"
+          go-version: "1.27"
 
       # >= 1.7 so the generated tests/*.tftest.hcl suite can use mock_provider.
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v4
         with:
-          terraform_version: "1.9.5"
+          terraform_version: "1.17.1"
           terraform_wrapper: false
 
       - name: Build
