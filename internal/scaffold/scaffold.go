@@ -36,9 +36,9 @@ type view struct {
 // plugin. `tflint --init` fails outright on a version that was never released,
 // so these are real tags from github.com/terraform-linters.
 var rulesetVersions = map[string]string{
-	"aws":     "0.48.0",
-	"google":  "0.39.0",
-	"azurerm": "0.32.0",
+	"aws":     "0.50.0",
+	"google":  "0.41.0",
+	"azurerm": "0.33.0",
 }
 
 type arg struct{ name, value string }
